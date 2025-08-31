@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Análise de Grafoscopia</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .loading-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(5px);
+            z-index: 100;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+        .spinner {
+            border: 8px solid #f3f3f3;
+            border-top: 8px solid #3498db;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.4);
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: 15% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            max-width: 500px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body class="bg-gray-100 p-8 flex flex-col items-center min-h-screen">
+    <div class="bg-white rounded-xl shadow-lg p-8 w-full max-w-4xl text-gray-800">
+        <h1 class="text-3xl font-bold text-center mb-6">Assistente de Grafoscopia</h1>
+
+        <!-- Mensagens do usuário -->
+        <div id="messages" class="mb-6 h-96 overflow-y-auto p-4 border rounded-lg bg-gray-50 space-y-4"></div>
+
+        <!-- Botões de ação -->
+        <div class="flex flex-col md:flex-row space-y-4 md:space-y-0 md:space-x-4 mb-6">
+            <button id="compareDocuments" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition-colors">
+                Comparar Assinaturas
+            </button>
+            <button id="generateReport" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition-colors">
+                Gerar Laudo Sugestivo
+            </button>
+            <button id="toggleUploadAreas" class="flex-1 bg-green-500 hover:bg-green-600 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition-colors">
+                Adicionar Documentos
+            </button>
+        </div>
+
+        <!-- Áreas de upload de imagem -->
+        <div id="uploadAreasContainer" class="hidden grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Área de upload para a imagem de referência -->
+            <div id="imageUploadArea1" class="flex flex-col items-center justify-center p-6 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors">
+                <h3 class="font-semibold text-lg text-gray-700 mb-2">Documento de Referência</h3>
+                <input type="file" id="imageInput1" accept="image/*" class="hidden">
+                <label for="imageInput1" class="cursor-pointer text-indigo-600 hover:text-indigo-800 font-semibold text-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto mb-2 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    <p>Clique ou arraste e solte</p>
+                </label>
+                <img id="imagePreview1" class="mt-4 max-h-64 rounded-lg shadow-md hidden">
+            </div>
+
+            <!-- Área de upload para a imagem questionada -->
+            <div id="imageUploadArea2" class="flex flex-col items-center justify-center p-6 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors">
+                <h3 class="font-semibold text-lg text-gray-700 mb-2">Documento Questionado</h3>
+                <input type="file" id="imageInput2" accept="image/*" class="hidden">
+                <label for="imageInput2" class="cursor-pointer text-indigo-600 hover:text-indigo-800 font-semibold text-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto mb-2 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    <p>Clique ou arraste e solte</p>
+                </label>
+                <img id="imagePreview2" class="mt-4 max-h-64 rounded-lg shadow-md hidden">
+            </div>
+        </div>
+
+        <!-- Controles para o chatbot -->
+        <div class="flex items-center space-x-4 mt-6">
+            <input type="text" id="promptInput" placeholder="Digite sua pergunta..." class="flex-1 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
+            <button id="sendButton" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition-colors">
+                Enviar
+            </button>
+        </div>
+    </div>
+
+    <!-- Modal de erro/informação -->
+    <div id="infoModal" class="modal">
+        <div class="modal-content">
+            <h3 id="modalTitle" class="text-xl font-semibold mb-2"></h3>
+            <p id="modalMessage" class="text-gray-700 mb-4"></p>
+            <button id="modalCloseButton" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-lg float-right">Fechar</button>
+        </div>
+    </div>
+
+    <!-- Overlay de carregamento -->
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="spinner"></div>
+        <p id="loadingText" class="mt-4 text-lg font-semibold text-gray-700">Aguardando...</p>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const messagesDiv = document.getElementById('messages');
+            const promptInput = document.getElementById('promptInput');
+            const sendButton = document.getElementById('sendButton');
+            const compareDocumentsButton = document.getElementById('compareDocuments');
+            const generateReportButton = document.getElementById('generateReport');
+            const toggleUploadAreasButton = document.getElementById('toggleUploadAreas');
+            const uploadAreasContainer = document.getElementById('uploadAreasContainer');
+            const imageInput1 = document.getElementById('imageInput1');
+            const imagePreview1 = document.getElementById('imagePreview1');
+            const imageInput2 = document.getElementById('imageInput2');
+            const imagePreview2 = document.getElementById('imagePreview2');
+            const loadingOverlay = document.getElementById('loadingOverlay');
+            const loadingText = document.getElementById('loadingText');
+            const infoModal = document.getElementById('infoModal');
+            const modalTitle = document.getElementById('modalTitle');
+            const modalMessage = document.getElementById('modalMessage');
+            const modalCloseButton = document.getElementById('modalCloseButton');
+
+            let chatHistory = [];
+            let uploadedImageBase64_1 = null;
+            let uploadedImageBase64_2 = null;
+            const MAX_RETRIES = 3;
+
+            // Variáveis globais fornecidas pelo ambiente
+            const apiKey = "AIzaSyDESw2GUzbt0PLrF6MA6-VQYYW1ZXaYj2E";
+            const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+            const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+            // Funções utilitárias para o UI
+            function showMessage(text, isUser = false) {
+                const messageElement = document.createElement('div');
+                messageElement.className = `p-3 rounded-lg max-w-lg shadow ${isUser ? 'bg-indigo-100 self-end ml-auto' : 'bg-gray-200 self-start mr-auto'}`;
+                messageElement.innerHTML = marked.parse(text);
+                messagesDiv.appendChild(messageElement);
+                messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            }
+
+            function showModal(title, message) {
+                modalTitle.textContent = title;
+                modalMessage.textContent = message;
+                infoModal.style.display = 'block';
+            }
+
+            function showLoading(text) {
+                loadingText.textContent = text;
+                loadingOverlay.style.display = 'flex';
+            }
+
+            function hideLoading() {
+                loadingOverlay.style.display = 'none';
+            }
+
+            // Anexar o listener para fechar o modal
+            modalCloseButton.onclick = () => {
+                infoModal.style.display = 'none';
+            };
+            window.onclick = (event) => {
+                if (event.target === infoModal) {
+                    infoModal.style.display = 'none';
+                }
+            };
+
+            // Funções de interação com o Gemini API
+            async function callGeminiApi(payload, isImageAnalysis = false, retries = 0) {
+                const urlText = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+                const urlImage = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+                
+                const url = isImageAnalysis ? urlImage : urlText;
+
+                try {
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(payload),
+                    });
+
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(`API Error: ${response.status} ${errorData.error.message}`);
+                    }
+
+                    return await response.json();
+                } catch (error) {
+                    if (retries < MAX_RETRIES) {
+                        const delay = Math.pow(2, retries) * 1000;
+                        console.log(`Tentando novamente em ${delay / 1000}s...`);
+                        await new Promise(res => setTimeout(res, delay));
+                        return callGeminiApi(payload, isImageAnalysis, retries + 1);
+                    } else {
+                        throw error;
+                    }
+                }
+            }
+            
+            async function sendPromptToGemini() {
+                const prompt = promptInput.value.trim();
+                if (!prompt) return;
+
+                showMessage(prompt, true);
+                promptInput.value = '';
+                showLoading('Gerando resposta...');
+
+                chatHistory.push({ role: 'user', parts: [{ text: prompt }] });
+
+                const payload = {
+                    contents: chatHistory
+                };
+
+                try {
+                    const response = await callGeminiApi(payload);
+                    const text = response.candidates[0].content.parts[0].text;
+                    showMessage(text);
+                    chatHistory.push({ role: 'model', parts: [{ text: text }] });
+                } catch (error) {
+                    console.error('Erro na chamada da API:', error);
+                    showMessage("Desculpe, algo deu errado. Tente novamente mais tarde.");
+                } finally {
+                    hideLoading();
+                }
+            }
+
+            async function compareDocuments() {
+                if (uploadedImageBase64_1 === null || uploadedImageBase64_2 === null) {
+                    showModal('Aviso', 'Por favor, carregue duas imagens para a análise comparativa.');
+                    return;
+                }
+
+                showLoading('Analisando as assinaturas...');
+                
+                try {
+                    const prompt = "Descrição e Comparação de Assinaturas: Por favor, observe as duas imagens de assinatura. A primeira é o Documento de Referência e a segunda é o Documento Questionado. Descreva e compare as principais características visuais de cada uma, incluindo: Inclinação da escrita, pressão e calibre do traçado, velocidade e fluidez, forma e alinhamento das letras, espaçamentos entre letras, palavras e linhas, ataques e remates, e gênese dos traços. Destaque as semelhanças e diferenças observadas em todos os pontos mencionados. Não emita um laudo técnico ou uma conclusão sobre a autenticidade.";
+                    
+                    const payload = {
+                        contents: [
+                            { 
+                                role: 'user', 
+                                parts: [
+                                    { text: prompt }, 
+                                    { inlineData: { mimeType: "image/png", data: uploadedImageBase64_1 } },
+                                    { inlineData: { mimeType: "image/png", data: uploadedImageBase64_2 } }
+                                ] 
+                            }
+                        ],
+                    };
+
+                    const response = await callGeminiApi(payload, true);
+                    const text = response.candidates[0].content.parts[0].text;
+                    
+                    showMessage("A análise comparativa está pronta!");
+                    showMessage(text);
+                } catch (error) {
+                    console.error('Erro na análise de comparação:', error);
+                    if (error.message.includes('401')) {
+                        showModal('Erro na API', 'Erro de autenticação. Verifique sua chave de API.');
+                    } else if (error.message.includes('403')) {
+                        showModal('Erro na API', 'Acesso negado. Verifique as permissões da sua chave de API.');
+                    } else if (error.message.includes('400')) {
+                        showModal('Erro na API', 'Requisição inválida. Verifique o formato das imagens.');
+                    } else if (error.message.includes('429')) {
+                        showModal('Erro na API', 'Limite de requisições excedido. Tente novamente em alguns minutos.');
+                    } else {
+                        showModal('Erro', `Erro ao processar análise: ${error.message}`);
+                    }
+                } finally {
+                    hideLoading();
+                }
+            }
+
+            async function generateSuggestiveReport() {
+                if (uploadedImageBase64_1 === null || uploadedImageBase64_2 === null) {
+                    showModal('Aviso', 'Por favor, carregue duas imagens para a análise comparativa.');
+                    return;
+                }
+
+                showLoading('Gerando laudo sugestivo...');
+                
+                try {
+                    const prompt = `
+                    Crie um "Laudo Grafotécnico Sugestivo" para as duas imagens de assinatura fornecidas. A primeira imagem é o Documento de Referência e a segunda é o Documento Questionado.
+                    Siga estritamente a seguinte estrutura de seções, utilizando a marcação Markdown para cabeçalhos (#, ##):
+                    # Laudo Grafotécnico Sugestivo
+                    ## 1. Objeto da Perícia
+                    Descreva que o objeto deste documento é a análise visual comparativa entre as duas assinaturas.
+                    ## 2. Material Gráfico
+                    Descreva o "Documento de Referência" e o "Documento Questionado".
+                    ## 3. Análise e Confronto
+                    Realize a análise e o confronto detalhados dos seguintes elementos, destacando as semelhanças e diferenças observadas em cada um:
+                    - **Inclinação:** Vertical, para a direita ou para a esquerda.
+                    - **Pressão e Calibre:** A força da caneta e a espessura dos traços.
+                    - **Velocidade e Dinamismo:** A fluidez e a espontaneidade da escrita.
+                    - **Forma e Alinhamento:** A morfologia das letras e o alinhamento em relação à linha de base.
+                    - **Espaçamentos:** As distâncias entre letras, palavras e linhas.
+                    - **Ataques e Remates:** Como os traços começam e terminam.
+                    - **Gênese dos Traços:** A direção dos movimentos de escrita.
+                    ## 4. Conclusão Sugestiva
+                    Finalize a análise com uma conclusão que resuma os achados e que, obrigatoriamente, inclua a seguinte frase: "Este documento é uma análise sugestiva gerada por inteligência artificial e não possui validade legal ou técnica como um laudo pericial oficial. Recomenda-se a consulta de um perito grafotécnico qualificado para qualquer decisão oficial."
+                    `;
+                    
+                    const payload = {
+                        contents: [
+                            { 
+                                role: 'user', 
+                                parts: [
+                                    { text: prompt }, 
+                                    { inlineData: { mimeType: "image/png", data: uploadedImageBase64_1 } },
+                                    { inlineData: { mimeType: "image/png", data: uploadedImageBase64_2 } }
+                                ] 
+                            }
+                        ],
+                    };
+
+                    const response = await callGeminiApi(payload, true);
+                    const reportText = response.candidates[0].content.parts[0].text;
+                    
+                    showMessage("O laudo sugestivo foi gerado com sucesso!");
+                    showMessage(reportText);
+                    
+                    // NOTE: This part of the code is for illustration. The actual file generation will be handled by the platform.
+                    // The platform will display a new document with the content from 'reportText'.
+                    // You would see a new tab or file on the right side of the screen.
+                    
+                } catch (error) {
+                    console.error('Erro ao gerar laudo:', error);
+                    if (error.message.includes('401')) {
+                        showModal('Erro na API', 'Erro de autenticação. Verifique sua chave de API.');
+                    } else if (error.message.includes('403')) {
+                        showModal('Erro na API', 'Acesso negado. Verifique as permissões da sua chave de API.');
+                    } else if (error.message.includes('400')) {
+                        showModal('Erro na API', 'Requisição inválida. Verifique o formato das imagens.');
+                    } else if (error.message.includes('429')) {
+                        showModal('Erro na API', 'Limite de requisições excedido. Tente novamente em alguns minutos.');
+                    } else {
+                        showModal('Erro', `Erro ao processar laudo: ${error.message}`);
+                    }
+                } finally {
+                    hideLoading();
+                }
+            }
+
+            // Listeners de eventos
+            sendButton.addEventListener('click', sendPromptToGemini);
+            promptInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    sendPromptToGemini();
+                }
+            });
+
+            compareDocumentsButton.addEventListener('click', compareDocuments);
+            generateReportButton.addEventListener('click', generateSuggestiveReport);
+
+            toggleUploadAreasButton.addEventListener('click', () => {
+                uploadAreasContainer.classList.toggle('hidden');
+            });
+
+            imageInput1.addEventListener('change', (event) => {
+                const file = event.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        uploadedImageBase64_1 = e.target.result.split(',')[1];
+                        imagePreview1.src = e.target.result;
+                        imagePreview1.classList.remove('hidden');
+                        showModal('Imagem Carregada', 'A imagem de referência foi carregada. Agora carregue o documento questionado.');
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+            
+            imageInput2.addEventListener('change', (event) => {
+                const file = event.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        uploadedImageBase64_2 = e.target.result.split(',')[1];
+                        imagePreview2.src = e.target.result;
+                        imagePreview2.classList.remove('hidden');
+                        showModal('Imagem Carregada', 'A imagem questionada foi carregada. Clique em "Comparar Assinaturas" ou "Gerar Laudo Sugestivo" para iniciar a análise.');
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+
+            // Para arrastar e soltar
+            const uploadAreas = [document.getElementById('imageUploadArea1'), document.getElementById('imageUploadArea2')];
+            uploadAreas.forEach(area => {
+                area.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    area.classList.add('border-indigo-500');
+                });
+
+                area.addEventListener('dragleave', (e) => {
+                    e.preventDefault();
+                    area.classList.remove('border-indigo-500');
+                });
+
+                area.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    area.classList.remove('border-indigo-500');
+                    const file = e.dataTransfer.files[0];
+                    if (file && file.type.startsWith('image/')) {
+                        if (area.id === 'imageUploadArea1') {
+                            imageInput1.files = e.dataTransfer.files;
+                            imageInput1.dispatchEvent(new Event('change'));
+                        } else {
+                            imageInput2.files = e.dataTransfer.files;
+                            imageInput2.dispatchEvent(new Event('change'));
+                        }
+                    }
+                });
+            });
+        });
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</body>
+</html>
