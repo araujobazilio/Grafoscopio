@@ -158,7 +158,7 @@
             const MAX_RETRIES = 3;
 
             // Variáveis globais fornecidas pelo ambiente
-            const apiKey = "AIzaSyDESw2GUzbt0PLrF6MA6-VQYYW1ZXaYj2E";
+            const apiKey = import.meta.env.VITE_GEMINI_API_KEY || "AIzaSyDESw2GUzbt0PLrF6MA6-VQYYW1ZXaYj2E";
             const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
             const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
